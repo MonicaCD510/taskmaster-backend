@@ -1,11 +1,15 @@
 const router = require("express").Router();
 
 const Bookmark = require("../models/Bookmark");
+const authMiddleware = require("../middleware/authMiddleware");
 
 // CREATE bookmark
-router.post("/", async (req, res) => {
+router.post("/", authMiddleware, async (req, res) => {
   try {
-    const bookmark = await Bookmark.create(req.body);
+    const bookmark = await Bookmark.create({
+      ...req.body,
+      user: req.user._id,
+    });
 
     res.status(201).json(bookmark);
   } catch (err) {
@@ -15,10 +19,12 @@ router.post("/", async (req, res) => {
   }
 });
 
-// GET all bookmarks
-router.get("/", async (req, res) => {
+// GET all bookmarks for logged-in user
+router.get("/", authMiddleware, async (req, res) => {
   try {
-    const bookmarks = await Bookmark.find();
+    const bookmarks = await Bookmark.find({
+      user: req.user._id,
+    });
 
     res.json(bookmarks);
   } catch (err) {
@@ -28,10 +34,19 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET one bookmark
-router.get("/:id", async (req, res) => {
+// GET one bookmark owned by logged-in user
+router.get("/:id", authMiddleware, async (req, res) => {
   try {
-    const bookmark = await Bookmark.findById(req.params.id);
+    const bookmark = await Bookmark.findOne({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!bookmark) {
+      return res.status(404).json({
+        message: "Bookmark not found",
+      });
+    }
 
     res.json(bookmark);
   } catch (err) {
@@ -41,14 +56,23 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// UPDATE bookmark
-router.put("/:id", async (req, res) => {
+// UPDATE bookmark owned by logged-in user
+router.put("/:id", authMiddleware, async (req, res) => {
   try {
-    const updatedBookmark = await Bookmark.findByIdAndUpdate(
-      req.params.id,
+    const updatedBookmark = await Bookmark.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        user: req.user._id,
+      },
       req.body,
       { new: true }
     );
+
+    if (!updatedBookmark) {
+      return res.status(404).json({
+        message: "Bookmark not found",
+      });
+    }
 
     res.json(updatedBookmark);
   } catch (err) {
@@ -58,10 +82,19 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE bookmark
-router.delete("/:id", async (req, res) => {
+// DELETE bookmark owned by logged-in user
+router.delete("/:id", authMiddleware, async (req, res) => {
   try {
-    await Bookmark.findByIdAndDelete(req.params.id);
+    const deletedBookmark = await Bookmark.findOneAndDelete({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!deletedBookmark) {
+      return res.status(404).json({
+        message: "Bookmark not found",
+      });
+    }
 
     res.json({
       message: "Bookmark deleted",
