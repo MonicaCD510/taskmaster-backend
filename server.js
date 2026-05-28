@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const express = require("express");
+const passport = require("./config/passport");
 
 const connectDB = require("./config/db");
 
@@ -16,6 +17,7 @@ connectDB();
 
 // middleware
 app.use(express.json());
+app.use(passport.initialize());
 
 // routes
 app.use("/api/users", userRoutes);

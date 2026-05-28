@@ -1,49 +1,79 @@
-const mongoose = require("mongoose");
-const bcrypt = require("bcrypt");
+const router = require("express").Router();
+const passport = require("passport");
 
-const userSchema = new mongoose.Schema(
-  {
-    username: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+const User = require("../../models/User");
+const { signToken } = require("../../utils/auth");
 
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
-    },
+// register user
+router.post("/register", async (req, res) => {
+  try {
+    const user = new User(req.body);
 
-    password: {
-      type: String,
-      required: true,
-      minlength: 6,
-    },
-  },
-  {
-    timestamps: true,
+    await user.save();
+
+    const token = signToken(user);
+
+    res.status(201).json({ token, user });
+  } catch (err) {
+    res.status(400).json({
+      message: err.message,
+    });
+  }
+});
+
+// login user
+router.post("/login", async (req, res) => {
+  try {
+    const user = await User.findOne({
+      email: req.body.email,
+    });
+
+    if (!user || !user.password) {
+      return res.status(400).json({
+        message: "Invalid email or password",
+      });
+    }
+
+    const correctPassword = await user.comparePassword(req.body.password);
+
+    if (!correctPassword) {
+      return res.status(400).json({
+        message: "Invalid email or password",
+      });
+    }
+
+    const token = signToken(user);
+
+    res.json({ token, user });
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+});
+
+// start GitHub OAuth
+router.get(
+  "/auth/github",
+  passport.authenticate("github", { scope: ["user:email"] })
+);
+
+// GitHub OAuth callback
+router.get(
+  "/auth/github/callback",
+  passport.authenticate("github", {
+    session: false,
+    failureRedirect: "/",
+  }),
+  (req, res) => {
+    const token = signToken(req.user);
+
+    res.json({
+      message: "GitHub login successful",
+      token,
+      user: req.user,
+    });
   }
 );
 
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) {
-    return next();
-  }
-
-  const salt = await bcrypt.genSalt(10);
-
-  this.password = await bcrypt.hash(this.password, salt);
-
-  next();
-});
-
-userSchema.methods.comparePassword = async function (
-  enteredPassword
-) {
-  return bcrypt.compare(enteredPassword, this.password);
-};
-
-module.exports = mongoose.model("User", userSchema);
+module.exports = router;

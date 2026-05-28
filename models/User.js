@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+
 const bcrypt = require("bcrypt");
 
 const userSchema = new mongoose.Schema(
@@ -19,18 +20,20 @@ const userSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      required: true,
-      minlength: 6,
+    },
+
+    githubId: {
+      type: String,
     },
   },
+
   {
     timestamps: true,
   }
 );
 
-// hash password before saving
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) {
+  if (!this.isModified("password") || !this.password) {
     return next();
   }
 
@@ -41,7 +44,6 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-// compare passwords
 userSchema.methods.comparePassword = async function (
   enteredPassword
 ) {
