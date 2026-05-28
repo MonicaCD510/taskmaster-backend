@@ -5,6 +5,7 @@ const express = require("express");
 const connectDB = require("./config/db");
 
 const userRoutes = require("./routes/api/userRoutes");
+const bookmarkRoutes = require("./routes/bookmarkRoutes");
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use(express.json());
 
 // routes
 app.use("/api/users", userRoutes);
+app.use("/api/bookmarks", bookmarkRoutes);
 
 // test route
 app.get("/", (req, res) => {

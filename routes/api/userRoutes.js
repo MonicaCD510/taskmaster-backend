@@ -1,54 +1,49 @@
-const router = require("express").Router();
+const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
 
-const User = require("../../models/User");
-const { signToken } = require("../../utils/auth");
+const userSchema = new mongoose.Schema(
+  {
+    username: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-// register user
-router.post("/register", async (req, res) => {
-  try {
-    const user = new User(req.body);
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
 
-    await user.save();
-
-    const token = signToken(user);
-
-    res.status(201).json({ token, user });
-  } catch (err) {
-    res.status(400).json({
-      message: err.message,
-    });
+    password: {
+      type: String,
+      required: true,
+      minlength: 6,
+    },
+  },
+  {
+    timestamps: true,
   }
+);
+
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) {
+    return next();
+  }
+
+  const salt = await bcrypt.genSalt(10);
+
+  this.password = await bcrypt.hash(this.password, salt);
+
+  next();
 });
 
-// login user
-router.post("/login", async (req, res) => {
-  try {
-    const user = await User.findOne({
-      email: req.body.email,
-    });
+userSchema.methods.comparePassword = async function (
+  enteredPassword
+) {
+  return bcrypt.compare(enteredPassword, this.password);
+};
 
-    if (!user) {
-      return res.status(400).json({
-        message: "Invalid credentials",
-      });
-    }
-
-    const validPassword = await user.comparePassword(req.body.password);
-
-    if (!validPassword) {
-      return res.status(400).json({
-        message: "Invalid credentials",
-      });
-    }
-
-    const token = signToken(user);
-
-    res.json({ token, user });
-  } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
-  }
-});
-
-module.exports = router;
+module.exports = mongoose.model("User", userSchema);
